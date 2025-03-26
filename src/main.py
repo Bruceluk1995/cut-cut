@@ -112,7 +112,7 @@ class VideoMixerApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("TikTok视频混剪工具")
-        self.root.geometry("1200x600")  # 增加窗口宽度以适应右侧音乐池列表
+        self.root.geometry("900x600")  # 减小窗口初始宽度
         
         # 设置自定义样式
         style = ttk.Style()
@@ -139,6 +139,9 @@ class VideoMixerApp:
         self.music_pools: dict = {}  # 存储音乐池路径和名称的映射
         self.music_files: dict = {}  # 存储每个音乐池的音乐文件列表
         self.selected_pool: Optional[str] = None  # 当前选中的音乐池
+        
+        # 音效相关变量
+        self.sound_effect_type_var = tk.StringVar(value="none")  # 音效类型：none/clips/video
         
         # 加载配置
         self._load_config()
@@ -170,6 +173,10 @@ class VideoMixerApp:
                     self.music_pool_states = config.get('music_pool_states', {})
                     # 加载使用背景音乐的状态
                     self.use_bgm = config.get('use_bgm', False)
+                    
+                    # 如果有保存的输入文件夹路径，加载视频文件
+                    if self.selected_folder and os.path.exists(self.selected_folder):
+                        self._load_videos()
         except Exception as e:
             print(f"加载配置文件失败: {e}")
     
@@ -230,12 +237,14 @@ class VideoMixerApp:
         self.main_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
         # 左侧主要内容区域
-        self.left_frame = ttk.Frame(self.main_frame)
+        self.left_frame = ttk.Frame(self.main_frame, width=600)  # 设置左侧固定宽度
         self.left_frame.pack(side="left", fill="both", expand=True, padx=(0,5))
+        self.left_frame.pack_propagate(False)  # 防止子组件改变frame大小
         
         # 右侧音乐池列表区域
-        self.right_frame = ttk.Frame(self.main_frame)
-        self.right_frame.pack(side="right", fill="y", padx=(5,0))
+        self.right_frame = ttk.Frame(self.main_frame, width=280)  # 设置右侧固定宽度
+        self.right_frame.pack(side="right", fill="both", padx=(5,0))
+        self.right_frame.pack_propagate(False)  # 防止子组件改变frame大小
         
         # 文件夹选择区域
         self.folder_frame = ttk.LabelFrame(self.left_frame, text="文件夹选择", padding=5)
@@ -244,7 +253,7 @@ class VideoMixerApp:
         self.input_frame = ttk.Frame(self.folder_frame)
         ttk.Label(self.input_frame, text="输入文件夹:").pack(side="left", padx=5)
         self.folder_path = tk.StringVar(value=self.selected_folder or '')  # 设置初始值
-        self.folder_entry = ttk.Entry(self.input_frame, textvariable=self.folder_path, width=50)
+        self.folder_entry = ttk.Entry(self.input_frame, textvariable=self.folder_path, width=40)
         self.folder_entry.pack(side="left", expand=True, fill="x", padx=5)
         self.browse_btn = ttk.Button(self.input_frame, text="浏览", command=self._browse_input_folder)
         self.browse_btn.pack(side="left", padx=5)
@@ -255,7 +264,7 @@ class VideoMixerApp:
         self.output_frame = ttk.Frame(self.folder_frame)
         ttk.Label(self.output_frame, text="输出文件夹:").pack(side="left", padx=5)
         self.output_path = tk.StringVar(value=self.output_folder or '')  # 设置初始值
-        self.output_entry = ttk.Entry(self.output_frame, textvariable=self.output_path, width=50)
+        self.output_entry = ttk.Entry(self.output_frame, textvariable=self.output_path, width=40)
         self.output_entry.pack(side="left", expand=True, fill="x", padx=5)
         self.output_btn = ttk.Button(self.output_frame, text="浏览", command=self._browse_output_folder)
         self.output_btn.pack(side="left", padx=5)
@@ -374,6 +383,55 @@ class VideoMixerApp:
         )
         self.no_audio_check.pack(side="left")
         
+        # 音效设置
+        self.sound_effect_frame = ttk.Frame(self.audio_frame)
+        self.sound_effect_frame.pack(side="left", padx=20)
+        
+        ttk.Radiobutton(
+            self.sound_effect_frame,
+            text="不使用音效",
+            variable=self.sound_effect_type_var,
+            value="none",
+            command=self._update_sound_effect_state
+        ).pack(side="left")
+        
+        ttk.Radiobutton(
+            self.sound_effect_frame,
+            text="片段开头添加",
+            variable=self.sound_effect_type_var,
+            value="clips",
+            command=self._update_sound_effect_state
+        ).pack(side="left", padx=10)
+        
+        ttk.Radiobutton(
+            self.sound_effect_frame,
+            text="视频开头添加",
+            variable=self.sound_effect_type_var,
+            value="video",
+            command=self._update_sound_effect_state
+        ).pack(side="left")
+        
+        # 音效文件选择
+        self.sound_effect_select_frame = ttk.Frame(self.audio_frame)
+        self.sound_effect_select_frame.pack(side="left", padx=20)
+        
+        self.sound_effect_path_var = tk.StringVar(value=self.sound_effect_path or '')
+        self.sound_effect_entry = ttk.Entry(
+            self.sound_effect_select_frame,
+            textvariable=self.sound_effect_path_var,
+            width=30,
+            state="disabled"
+        )
+        self.sound_effect_entry.pack(side="left", padx=5)
+        
+        self.sound_effect_btn = ttk.Button(
+            self.sound_effect_select_frame,
+            text="选择音效",
+            command=self._browse_sound_effect,
+            state="disabled"
+        )
+        self.sound_effect_btn.pack(side="left")
+        
         # 音乐池设置区域移动到右侧
         self.music_pool_frame = ttk.LabelFrame(self.right_frame, text="背景音乐设置", padding=5)
         self.music_pool_frame.pack(fill="both", expand=True, pady=5)
@@ -437,9 +495,9 @@ class VideoMixerApp:
         self.music_tree.heading("filename", text="文件名")
         self.music_tree.heading("duration", text="时长")
         
-        self.music_tree.column("checked", width=50)
-        self.music_tree.column("filename", width=300)
-        self.music_tree.column("duration", width=80)
+        self.music_tree.column("checked", width=40)  # 减小选择列宽度
+        self.music_tree.column("filename", width=160)  # 减小文件名列宽度
+        self.music_tree.column("duration", width=60)  # 减小时长列宽度
         
         # 音乐列表滚动条
         self.music_scrollbar = ttk.Scrollbar(
@@ -511,8 +569,8 @@ class VideoMixerApp:
         self.tree = ttk.Treeview(self.list_frame, columns=("checked", "filename"), show="headings")
         self.tree.heading("checked", text="选择")
         self.tree.heading("filename", text="文件名")
-        self.tree.column("checked", width=50)
-        self.tree.column("filename", width=500)
+        self.tree.column("checked", width=40)  # 减小选择列宽度
+        self.tree.column("filename", width=300)  # 减小文件名列宽度
         
         # 添加滚动条
         self.scrollbar = ttk.Scrollbar(self.list_frame, orient="vertical", command=self.tree.yview)
@@ -561,7 +619,7 @@ class VideoMixerApp:
         
         # 修改输出文件夹Entry的绑定
         self.output_entry.bind('<KeyRelease>', lambda e: self._update_output_folder())
-    
+        
     def _setup_layout(self):
         # 文件夹选择区域布局
         self.folder_frame.pack(fill="x", pady=5)
@@ -687,11 +745,35 @@ class VideoMixerApp:
             os.startfile(video_path)
     
     def _start_processing(self):
-        if not self.selected_folder or not self.video_files:
-            messagebox.showerror("错误", "请先选择输入视频文件夹")
+        # 如果没有选择文件夹但有保存的路径，使用保存的路径
+        if not self.selected_folder and self.folder_path.get():
+            self.selected_folder = self.folder_path.get()
+            self._load_videos()  # 重新加载视频
+        
+        if not self.selected_folder:
+            messagebox.showerror("错误", "请选择输入视频文件夹")
+            return
+        
+        if not os.path.exists(self.selected_folder):
+            messagebox.showerror("错误", "输入文件夹不存在")
+            return
+        
+        if not self.video_files:
+            self._load_videos()  # 尝试重新加载视频
+            if not self.video_files:
+                messagebox.showerror("错误", "所选文件夹中没有视频文件")
             return
             
         if not self.output_folder:
+            if self.output_path.get():  # 如果输出路径输入框有值
+                self.output_folder = self.output_path.get()
+                if not os.path.exists(self.output_folder):
+                    try:
+                        os.makedirs(self.output_folder)  # 尝试创建输出文件夹
+                    except Exception as e:
+                        messagebox.showerror("错误", f"无法创建输出文件夹: {str(e)}")
+                        return
+            else:
             messagebox.showerror("错误", "请选择输出文件夹")
             return
         
@@ -763,7 +845,7 @@ class VideoMixerApp:
             # 禁用模式选择
             self.follow_video_radio.configure(state="disabled")
             self.follow_music_radio.configure(state="disabled")
-    
+
     def _update_sound_effect_state(self):
         """更新音效相关控件的状态"""
         if self.sound_effect_type_var.get() != "none":
@@ -809,6 +891,10 @@ class VideoMixerApp:
             sound_effect_type = self.sound_effect_type_var.get()
             sound_effect_path = self.sound_effect_path if sound_effect_type != "none" else None
             
+            # 计算总步骤数（用于进度计算）
+            total_steps = generate_count * (clips + 1)  # clips个片段处理 + 1个合并步骤
+            current_step = 0
+            
             for video_index in range(generate_count):
                 # 随机选择视频
                 selected_clips = random.sample(videos, clips)
@@ -824,7 +910,9 @@ class VideoMixerApp:
                 
                 # 处理每个视频片段
                 for i, video in enumerate(selected_clips, 1):
-                    self.status_var.set(f"处理第 {video_index + 1}/{generate_count} 个视频的片段 {i}/{clips}")
+                    current_step += 1
+                    progress = (current_step / total_steps) * 100
+                    self.status_var.set(f"处理第 {video_index + 1}/{generate_count} 个视频的片段 {i}/{clips} - 进度: {progress:.1f}%")
                     input_path = os.path.join(self.selected_folder, video)
                     temp_path = os.path.join(temp_dir, f"temp_{video_index}_{i}.mp4")
                     processed_path = os.path.join(temp_dir, f"processed_{video_index}_{i}.mp4")
@@ -893,7 +981,9 @@ class VideoMixerApp:
                         os.rename(processed_path, output_path)
                 
                 # 合并视频片段
-                self.status_var.set(f"合并第 {video_index + 1}/{generate_count} 个视频...")
+                current_step += 1
+                progress = (current_step / total_steps) * 100
+                self.status_var.set(f"合并第 {video_index + 1}/{generate_count} 个视频... - 进度: {progress:.1f}%")
                 
                 # 创建文件列表
                 list_file = os.path.join(temp_dir, f"list_{video_index}.txt")
@@ -959,7 +1049,7 @@ class VideoMixerApp:
                     subprocess.run(cmd, check=True)
                     os.remove(merged_path)
                 elif sound_effect_type == "video" and sound_effect_path:
-                    # 如果需要在完整视频开头添加音效
+                # 如果需要在完整视频开头添加音效
                     cmd = [
                         "ffmpeg", "-y",
                         "-i", merged_path,
@@ -1155,14 +1245,14 @@ class VideoMixerApp:
 
     def _open_music_pool(self):
         """打开选中的音乐池文件夹"""
-        selected = self.music_pool_tree.selection()
+        selected = self.music_tree.selection()
         if not selected:
             messagebox.showerror("错误", "请先选择要打开的音乐池")
             return
         
         item = selected[0]
-        values = self.music_pool_tree.item(item)["values"]
-        path = values[2]  # 音乐池路径在第三列
+        values = self.music_tree.item(item)["values"]
+        path = values[1]  # 音乐池路径在第二列
         
         if not os.path.exists(path):
             messagebox.showerror("错误", "音乐池文件夹不存在")
@@ -1285,16 +1375,16 @@ class VideoMixerApp:
 
     def _show_music_list(self, event):
         """显示音乐池中的音乐列表"""
-        item = self.music_pool_tree.identify_row(event.y)
+        item = self.music_tree.identify_row(event.y)
         if not item:
             return
             
-        values = self.music_pool_tree.item(item)["values"]
+        values = self.music_tree.item(item)["values"]
         if not values:
             return
             
         pool_name = values[1]
-        pool_path = values[2]
+        pool_path = values[1]  # 音乐池路径在第二列
         
         if pool_path not in self.music_files:
             messagebox.showerror("错误", "该音乐池中没有音乐文件")
