@@ -1,4 +1,15 @@
 {
-  "input_folder": "C:/Users/Administrator/Desktop/111",
-  "output_folder": ""
+  "input_folder": "C:/Users/Administrator/Desktop/猫/data/点赞/视频",
+  "output_folder": "C:/Users/Administrator/Desktop",
+  "sound_effect_path": "",
+  "music_pools": {
+    "猫": "C:/Users/Administrator/Desktop/猫第一人称音乐",
+    "电商": "C:/Users/Administrator/Desktop/电商"
+  },
+  "selected_pool": "猫",
+  "music_pool_states": {
+    "猫": true,
+    "电商": true
+  },
+  "use_bgm": false
 }
