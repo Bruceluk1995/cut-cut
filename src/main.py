@@ -678,7 +678,13 @@ class VideoMixerApp:
             return
         
         if not os.path.exists(self.output_folder):
-            messagebox.showerror("错误", "输出文件夹不存在")
+            try:
+                os.makedirs(self.output_folder)  # 尝试创建输出文件夹
+            except Exception as e:
+                messagebox.showerror("错误", f"无法创建输出文件夹: {str(e)}")
+                return
+        else:
+            messagebox.showerror("错误", "请选择输出文件夹")
             return
             
         os.startfile(self.output_folder)
@@ -774,8 +780,8 @@ class VideoMixerApp:
                         messagebox.showerror("错误", f"无法创建输出文件夹: {str(e)}")
                         return
             else:
-            messagebox.showerror("错误", "请选择输出文件夹")
-            return
+                messagebox.showerror("错误", "请选择输出文件夹")
+                return
         
         try:
             # 根据当前模式获取参数
